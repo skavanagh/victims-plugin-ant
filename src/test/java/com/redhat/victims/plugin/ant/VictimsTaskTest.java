@@ -95,9 +95,9 @@ public class VictimsTaskTest {
 		String updates = vt.getUpdates();
 		assertTrue(updates.equalsIgnoreCase("auto")
 				|| updates.equalsIgnoreCase("offline")
-				|| updates.equalsIgnoreCase("daily"));
+				|| updates.equalsIgnoreCase("daily")
+				|| updates.equalsIgnoreCase("weekly"));
 		vt.setUpdates("auto");
-		assertTrue(vt.updatesEnabled());
 	}
 
 	/**

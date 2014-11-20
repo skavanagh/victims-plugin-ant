@@ -69,7 +69,7 @@ public class VictimsTask extends Task {
 	private String jdbcDriver = VictimsDB.defaultDriver();
 	private String jdbcUrl = VictimsDB.defaultURL();
 	private String jdbcUser = Settings.USER_DEFAULT;
-	private String updates = Settings.UPDATES_AUTO;
+	private String updates = VictimsDB.dbUpdate();
 	private String jdbcPass = Settings.PASS_DEFAULT;
 	private String entryPoint = Settings.ENTRY_DEFAULT;
 	private String baseUrl = Settings.BASE_URL_DEFAULT;
@@ -97,7 +97,7 @@ public class VictimsTask extends Task {
 		ctx.getSettings().set(VictimsConfig.Key.ENTRY, entryPoint);
 		ctx.getSettings().set(VictimsConfig.Key.DB_USER, jdbcUser);
 		ctx.getSettings().set(VictimsConfig.Key.DB_PASS, jdbcPass);
-		ctx.getSettings().set(Settings.UPDATE_DATABASE, updates);
+		ctx.getSettings().set(VictimsConfig.Key.DB_UPDATE, updates);
 
 		// Only need to query using one hashing mechanism
 		System.setProperty(VictimsConfig.Key.ALGORITHMS, "SHA512");
@@ -134,7 +134,7 @@ public class VictimsTask extends Task {
 
 		try {
 			// Sync database
-			updateDatabase(ctx);
+			ctx.getDatabase().synchronize();
 			// Concurrency, yay!
 			executor = Executors.newFixedThreadPool(cores);
 			jobs = new ArrayList<Future<FileStub>>();
@@ -212,50 +212,6 @@ public class VictimsTask extends Task {
 		}
 	}
 
-	/**
-	 * Updates the database according to the given configuration
-	 * 
-	 * @param ctx
-	 * @throws VictimsException
-	 */
-	public void updateDatabase(ExecutionContext ctx) throws VictimsException {
-
-		VictimsDBInterface db = ctx.getDatabase();
-		LogOutputResource log = ctx.getLog();
-
-		Date updated = db.lastUpdated();
-
-		// update automatically every time
-		if (ctx.updateAlways()) {
-			log.log(TextUI.fmt(Resources.INFO_UPDATES, updated.toString(),
-					VictimsConfig.uri()), LogLevel.INFO.getLevel());
-			db.synchronize();
-
-			// update once per day
-		} else if (ctx.updateDaily()) {
-
-			Date today = new Date();
-			SimpleDateFormat cmp = new SimpleDateFormat("yyyMMdd");
-			boolean updatedToday = cmp.format(today)
-					.equals(cmp.format(updated));
-
-			if (!updatedToday) {
-				log.log(TextUI.fmt(Resources.INFO_UPDATES, updated.toString(),
-						VictimsConfig.uri()), LogLevel.INFO.getLevel());
-				db.synchronize();
-
-			} else {
-				log.log("Database last synchronized: " + updated.toString(),
-						LogLevel.DEBUG.getLevel());
-			}
-
-			// updates disabled
-		} else {
-			log.log("Database synchronization disabled.",
-					LogLevel.INFO.getLevel());
-		}
-
-	}
 
 	/**
 	 * Setter for jar attribute.
@@ -352,11 +308,8 @@ public class VictimsTask extends Task {
 	 *            update mode
 	 */
 	public void setUpdates(String updates) {
-		if (updates.equalsIgnoreCase("auto")
-				|| updates.equalsIgnoreCase("offline")
-				|| updates.equalsIgnoreCase("daily")) {
-			ctx.getSettings().set(Settings.UPDATE_DATABASE, updates);
-		}
+		System.setProperty(VictimsConfig.Key.DB_UPDATE, updates);
+		ctx.getSettings().set(VictimsConfig.Key.DB_UPDATE, updates);
 	}
 
 	/**
@@ -508,18 +461,9 @@ public class VictimsTask extends Task {
 	 * @return update mode
 	 */
 	public String getUpdates() {
-		return ctx.getSettings().get(Settings.UPDATE_DATABASE);
+		return ctx.getSettings().get(VictimsConfig.Key.DB_UPDATE);
 	}
 
-	/**
-	 * Updates enabled check
-	 * 
-	 * @return true if updates are enabled
-	 */
-	public boolean updatesEnabled() {
-		String val = getUpdates();
-		return val != null && val.equalsIgnoreCase("auto");
-	}
 
 	/**
 	 * clone our filesets vector, and patch in the jar attribute as a new
